@@ -70,12 +70,25 @@ pub enum DataKey {
     Claimed(Symbol, Address),
     /// Total project count (for enumeration)
     ProjectCount,
+    /// Ordered project ID at creation index i (for get_project_ids)
+    ProjectId(u32),
     /// Contract admin for global allowlist management
     Admin,
     /// Number of allowlisted token contract addresses
     AllowedTokenCount,
     /// Allowlisted token contract address marker
     AllowedToken(Address),
+}
+
+/// Returned by `get_claimable`: how much a collaborator has received and the
+/// last distribution round the project has completed.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClaimableInfo {
+    /// Total amount claimed (paid out) to this collaborator across all rounds
+    pub claimed: i128,
+    /// Number of distribution rounds completed for this project
+    pub distribution_round: u32,
 }
 
 // ============================================================
@@ -213,12 +226,15 @@ impl SplitNairaContract {
             .set(&DataKey::ProjectBalance(project_id.clone()), &0i128);
         Self::bump_project_ttl(&env, &project_id);
 
-        // Increment global project count
+        // Increment global project count and record ID at its index
         let count: u32 = env
             .storage()
             .persistent()
             .get::<DataKey, u32>(&DataKey::ProjectCount)
             .unwrap_or(0);
+        env.storage()
+            .persistent()
+            .set(&DataKey::ProjectId(count), &project_id);
         env.storage()
             .persistent()
             .set(&DataKey::ProjectCount, &(count + 1));
@@ -327,10 +343,13 @@ impl SplitNairaContract {
             .get::<DataKey, i128>(&DataKey::ProjectBalance(project_id.clone()))
             .unwrap_or(0);
 
+        let new_balance = prev_balance + amount;
         env.storage().persistent().set(
-            &DataKey::ProjectBalance(project_id),
-            &(prev_balance + amount),
+            &DataKey::ProjectBalance(project_id.clone()),
+            &new_balance,
         );
+
+        SplitEvents::deposit_received(&env, &project_id, &from, amount);
 
         Ok(())
     }
@@ -485,6 +504,95 @@ impl SplitNairaContract {
     /// Returns the configured contract admin, if set.
     pub fn get_admin(env: Env) -> Option<Address> {
         env.storage().persistent().get::<DataKey, Address>(&DataKey::Admin)
+    }
+
+    /// Returns a paginated list of project IDs (Symbols) in creation order.
+    ///
+    /// # Arguments
+    /// * `start` - Zero-based index of the first project to return
+    /// * `limit` - Maximum number of IDs to return
+    ///
+    /// Returns an empty Vec when `start` is beyond the total project count.
+    pub fn get_project_ids(env: Env, start: u32, limit: u32) -> Vec<Symbol> {
+        let count: u32 = env
+            .storage()
+            .persistent()
+            .get::<DataKey, u32>(&DataKey::ProjectCount)
+            .unwrap_or(0);
+
+        let mut ids = Vec::new(&env);
+        let end = (start + limit).min(count);
+        for i in start..end {
+            if let Some(id) = env
+                .storage()
+                .persistent()
+                .get::<DataKey, Symbol>(&DataKey::ProjectId(i))
+            {
+                ids.push_back(id);
+            }
+        }
+        ids
+    }
+
+    /// Returns how much a collaborator has been paid across all distribution
+    /// rounds for a given project, plus the number of completed rounds.
+    ///
+    /// # Errors
+    /// * `SplitError::NotFound` - if the project does not exist
+    pub fn get_claimable(
+        env: Env,
+        project_id: Symbol,
+        collaborator: Address,
+    ) -> Result<ClaimableInfo, SplitError> {
+        let project = Self::get_project_or_err(&env, &project_id)?;
+        let claimed = env
+            .storage()
+            .persistent()
+            .get::<DataKey, i128>(&DataKey::Claimed(project_id, collaborator))
+            .unwrap_or(0);
+        Ok(ClaimableInfo {
+            claimed,
+            distribution_round: project.distribution_round,
+        })
+    }
+
+    /// Updates the `title` and `project_type` of an existing project.
+    ///
+    /// Only the project owner can call this, and only while the project is
+    /// unlocked.  Emits a `metadata_updated` event on success.
+    ///
+    /// # Errors
+    /// * `SplitError::NotFound`     - if the project does not exist
+    /// * `SplitError::Unauthorized` - if caller is not the owner
+    /// * `SplitError::ProjectLocked` - if the project is locked
+    pub fn update_project_metadata(
+        env: Env,
+        project_id: Symbol,
+        owner: Address,
+        title: String,
+        project_type: String,
+    ) -> Result<(), SplitError> {
+        let mut project = Self::get_project_or_err(&env, &project_id)?;
+
+        if project.owner != owner {
+            return Err(SplitError::Unauthorized);
+        }
+        owner.require_auth();
+
+        if project.locked {
+            return Err(SplitError::ProjectLocked);
+        }
+
+        project.title = title;
+        project.project_type = project_type;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Project(project_id.clone()), &project);
+        Self::bump_project_ttl(&env, &project_id);
+
+        SplitEvents::metadata_updated(&env, &project_id);
+
+        Ok(())
     }
 
     // ----------------------------------------------------------

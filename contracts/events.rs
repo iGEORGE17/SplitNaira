@@ -52,4 +52,26 @@ impl SplitEvents {
             (round, total),
         );
     }
+
+    /// Emitted on every successful deposit into a project.
+    ///
+    /// Topics:  ["deposit_received", project_id]
+    /// Data:    (from address, amount in stroops)
+    pub fn deposit_received(env: &Env, project_id: &Symbol, from: &Address, amount: i128) {
+        env.events().publish(
+            (Symbol::new(env, "deposit_received"), project_id.clone()),
+            (from.clone(), amount),
+        );
+    }
+
+    /// Emitted when a project's title or type metadata is updated.
+    ///
+    /// Topics:  ["metadata_updated", project_id]
+    /// Data:    project_id
+    pub fn metadata_updated(env: &Env, project_id: &Symbol) {
+        env.events().publish(
+            (Symbol::new(env, "metadata_updated"), project_id.clone()),
+            project_id.clone(),
+        );
+    }
 }
