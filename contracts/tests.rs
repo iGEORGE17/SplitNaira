@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{testutils::Address as _, token, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{testutils::{Address as _, Events as _}, token, Address, Env, String, Symbol, Vec};
 
 // ============================================================
 //  TEST HELPERS
@@ -731,12 +731,12 @@ fn test_multi_project_balances_are_isolated() {
 }
 
 // ============================================================
-//  LIST PROJECTS TESTS
+//  LIST PROJECTS TESTS (upstream — issues #49)
 // ============================================================
 
 #[test]
 fn test_list_projects_empty() {
-    let (env, _admin, token) = create_test_env();
+    let (env, _admin, _token) = create_test_env();
     let contract_id = env.register_contract(None, SplitNairaContract);
     let client = SplitNairaContractClient::new(&env, &contract_id);
 
@@ -802,46 +802,22 @@ fn test_list_projects_pagination() {
     );
 
     // Create 5 projects
-    client.create_project(
-        &owner,
-        &Symbol::new(&env, "proj_0"),
-        &String::from_str(&env, "P0"),
-        &String::from_str(&env, "music"),
-        &token,
-        &collabs,
-    );
-    client.create_project(
-        &owner,
-        &Symbol::new(&env, "proj_1"),
-        &String::from_str(&env, "P1"),
-        &String::from_str(&env, "music"),
-        &token,
-        &collabs,
-    );
-    client.create_project(
-        &owner,
-        &Symbol::new(&env, "proj_2"),
-        &String::from_str(&env, "P2"),
-        &String::from_str(&env, "music"),
-        &token,
-        &collabs,
-    );
-    client.create_project(
-        &owner,
-        &Symbol::new(&env, "proj_3"),
-        &String::from_str(&env, "P3"),
-        &String::from_str(&env, "music"),
-        &token,
-        &collabs,
-    );
-    client.create_project(
-        &owner,
-        &Symbol::new(&env, "proj_4"),
-        &String::from_str(&env, "P4"),
-        &String::from_str(&env, "music"),
-        &token,
-        &collabs,
-    );
+    for (id, title) in [
+        ("proj_0", "P0"),
+        ("proj_1", "P1"),
+        ("proj_2", "P2"),
+        ("proj_3", "P3"),
+        ("proj_4", "P4"),
+    ] {
+        client.create_project(
+            &owner,
+            &Symbol::new(&env, id),
+            &String::from_str(&env, title),
+            &String::from_str(&env, "music"),
+            &token,
+            &collabs,
+        );
+    }
 
     // Test first page
     let page1 = client.list_projects(&0, &2);
@@ -868,7 +844,7 @@ fn test_list_projects_pagination() {
 
 #[test]
 fn test_list_projects_bounds() {
-    let (env, _admin, _token) = create_test_env();
+    let (env, _admin, token) = create_test_env();
     let contract_id = env.register_contract(None, SplitNairaContract);
     let client = SplitNairaContractClient::new(&env, &contract_id);
 
@@ -901,4 +877,436 @@ fn test_list_projects_bounds() {
     // Start at exact end
     let projects = client.list_projects(&1, &5);
     assert_eq!(projects.len(), 0);
+}
+
+// ============================================================
+//  ISSUE #49 — get_project_ids TESTS
+// ============================================================
+
+#[test]
+fn test_get_project_ids_returns_ids_in_creation_order() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice.clone(), bob.clone()]),
+        Vec::from_slice(&env, &[5000u32, 5000u32]),
+    );
+
+    let id_a = Symbol::new(&env, "proj_alpha");
+    let id_b = Symbol::new(&env, "proj_beta");
+    let id_c = Symbol::new(&env, "proj_gamma");
+
+    client.create_project(
+        &owner,
+        &id_a,
+        &String::from_str(&env, "Alpha"),
+        &String::from_str(&env, "music"),
+        &token,
+        &collabs,
+    );
+    client.create_project(
+        &owner,
+        &id_b,
+        &String::from_str(&env, "Beta"),
+        &String::from_str(&env, "film"),
+        &token,
+        &collabs,
+    );
+    client.create_project(
+        &owner,
+        &id_c,
+        &String::from_str(&env, "Gamma"),
+        &String::from_str(&env, "art"),
+        &token,
+        &collabs,
+    );
+
+    let ids = client.get_project_ids(&0u32, &10u32);
+    assert_eq!(ids.len(), 3);
+    assert_eq!(ids.get(0u32).unwrap(), id_a);
+    assert_eq!(ids.get(1u32).unwrap(), id_b);
+    assert_eq!(ids.get(2u32).unwrap(), id_c);
+}
+
+#[test]
+fn test_get_project_ids_pagination() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice.clone(), bob.clone()]),
+        Vec::from_slice(&env, &[5000u32, 5000u32]),
+    );
+
+    let id_a = Symbol::new(&env, "pg_alpha");
+    let id_b = Symbol::new(&env, "pg_beta");
+    let id_c = Symbol::new(&env, "pg_gamma");
+
+    for (id, title) in [
+        (id_a.clone(), "Alpha"),
+        (id_b.clone(), "Beta"),
+        (id_c.clone(), "Gamma"),
+    ] {
+        client.create_project(
+            &owner,
+            &id,
+            &String::from_str(&env, title),
+            &String::from_str(&env, "music"),
+            &token,
+            &collabs,
+        );
+    }
+
+    // Page 1: start=0, limit=2
+    let page1 = client.get_project_ids(&0u32, &2u32);
+    assert_eq!(page1.len(), 2);
+    assert_eq!(page1.get(0u32).unwrap(), id_a);
+    assert_eq!(page1.get(1u32).unwrap(), id_b);
+
+    // Page 2: start=2, limit=2 (only 1 remaining)
+    let page2 = client.get_project_ids(&2u32, &2u32);
+    assert_eq!(page2.len(), 1);
+    assert_eq!(page2.get(0u32).unwrap(), id_c);
+
+    // Beyond end: start=10
+    let empty = client.get_project_ids(&10u32, &5u32);
+    assert_eq!(empty.len(), 0);
+}
+
+#[test]
+fn test_get_project_ids_empty_contract() {
+    let (env, _admin, _token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let ids = client.get_project_ids(&0u32, &10u32);
+    assert_eq!(ids.len(), 0);
+}
+
+// ============================================================
+//  ISSUE #50 — deposit_received EVENT TESTS
+// ============================================================
+
+#[test]
+fn test_deposit_emits_deposit_received_event() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let funder = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice, bob]),
+        Vec::from_slice(&env, &[5000u32, 5000u32]),
+    );
+
+    let project_id = Symbol::new(&env, "evt_deposit");
+    client.create_project(
+        &owner,
+        &project_id,
+        &String::from_str(&env, "Event Deposit"),
+        &String::from_str(&env, "music"),
+        &token,
+        &collabs,
+    );
+
+    let amount: i128 = 500_0000000;
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&funder, &amount);
+    client.deposit(&project_id, &funder, &amount);
+
+    // Verify balance was credited correctly
+    assert_eq!(client.get_balance(&project_id), amount);
+
+    // Verify that at least two events were emitted:
+    // 1) project_created  2) deposit_received
+    assert!(env.events().all().len() >= 2);
+}
+
+// ============================================================
+//  ISSUE #52 — get_claimable TESTS
+// ============================================================
+
+#[test]
+fn test_get_claimable_before_any_distribution() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice.clone(), bob.clone()]),
+        Vec::from_slice(&env, &[6000u32, 4000u32]),
+    );
+
+    let project_id = Symbol::new(&env, "claim_before");
+    client.create_project(
+        &owner,
+        &project_id,
+        &String::from_str(&env, "Claim Before"),
+        &String::from_str(&env, "music"),
+        &token,
+        &collabs,
+    );
+
+    let info = client.get_claimable(&project_id, &alice);
+    assert_eq!(info.claimed, 0);
+    assert_eq!(info.distribution_round, 0);
+}
+
+#[test]
+fn test_get_claimable_after_distribution() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let funder = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice.clone(), bob.clone()]),
+        Vec::from_slice(&env, &[6000u32, 4000u32]),
+    );
+
+    let project_id = Symbol::new(&env, "claim_after");
+    client.create_project(
+        &owner,
+        &project_id,
+        &String::from_str(&env, "Claim After"),
+        &String::from_str(&env, "music"),
+        &token,
+        &collabs,
+    );
+
+    deposit_to_project(&env, &client, &token, &project_id, &funder, 1_000_0000000i128);
+    client.distribute(&project_id);
+
+    let alice_info = client.get_claimable(&project_id, &alice);
+    assert_eq!(alice_info.claimed, 600_0000000i128); // 60% of 1000
+    assert_eq!(alice_info.distribution_round, 1);
+
+    let bob_info = client.get_claimable(&project_id, &bob);
+    assert_eq!(bob_info.claimed, 400_0000000i128); // 40% of 1000
+    assert_eq!(bob_info.distribution_round, 1);
+
+    // Non-collaborator returns 0 claimed but correct round
+    let outsider = Address::generate(&env);
+    let outsider_info = client.get_claimable(&project_id, &outsider);
+    assert_eq!(outsider_info.claimed, 0);
+    assert_eq!(outsider_info.distribution_round, 1);
+}
+
+#[test]
+fn test_get_claimable_accumulates_across_rounds() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let funder = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice.clone(), bob.clone()]),
+        Vec::from_slice(&env, &[5000u32, 5000u32]),
+    );
+
+    let project_id = Symbol::new(&env, "claim_rounds");
+    client.create_project(
+        &owner,
+        &project_id,
+        &String::from_str(&env, "Claim Rounds"),
+        &String::from_str(&env, "music"),
+        &token,
+        &collabs,
+    );
+
+    deposit_to_project(&env, &client, &token, &project_id, &funder, 200_0000000i128);
+    client.distribute(&project_id);
+
+    deposit_to_project(&env, &client, &token, &project_id, &funder, 100_0000000i128);
+    client.distribute(&project_id);
+
+    let info = client.get_claimable(&project_id, &alice);
+    assert_eq!(info.claimed, 150_0000000i128); // 50% of (200+100)
+    assert_eq!(info.distribution_round, 2);
+}
+
+#[test]
+fn test_get_claimable_fails_for_missing_project() {
+    let (env, _admin, _token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let random = Address::generate(&env);
+    let result = client.try_get_claimable(&Symbol::new(&env, "ghost"), &random);
+    assert_eq!(result, Err(Ok(SplitError::NotFound)));
+}
+
+// ============================================================
+//  ISSUE #55 — update_project_metadata TESTS
+// ============================================================
+
+#[test]
+fn test_update_project_metadata_success() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice, bob]),
+        Vec::from_slice(&env, &[5000u32, 5000u32]),
+    );
+
+    let project_id = Symbol::new(&env, "meta_update");
+    client.create_project(
+        &owner,
+        &project_id,
+        &String::from_str(&env, "Original Title"),
+        &String::from_str(&env, "music"),
+        &token,
+        &collabs,
+    );
+
+    client.update_project_metadata(
+        &project_id,
+        &owner,
+        &String::from_str(&env, "Updated Title"),
+        &String::from_str(&env, "film"),
+    );
+
+    let project = client.get_project(&project_id).unwrap();
+    assert_eq!(project.title, String::from_str(&env, "Updated Title"));
+    assert_eq!(project.project_type, String::from_str(&env, "film"));
+}
+
+#[test]
+fn test_update_project_metadata_fails_when_locked() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice, bob]),
+        Vec::from_slice(&env, &[5000u32, 5000u32]),
+    );
+
+    let project_id = Symbol::new(&env, "meta_locked");
+    client.create_project(
+        &owner,
+        &project_id,
+        &String::from_str(&env, "Locked Title"),
+        &String::from_str(&env, "music"),
+        &token,
+        &collabs,
+    );
+    client.lock_project(&project_id, &owner);
+
+    let result = client.try_update_project_metadata(
+        &project_id,
+        &owner,
+        &String::from_str(&env, "New Title"),
+        &String::from_str(&env, "art"),
+    );
+    assert_eq!(result, Err(Ok(SplitError::ProjectLocked)));
+}
+
+#[test]
+fn test_update_project_metadata_fails_when_unauthorized() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let not_owner = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice, bob]),
+        Vec::from_slice(&env, &[5000u32, 5000u32]),
+    );
+
+    let project_id = Symbol::new(&env, "meta_unauth");
+    client.create_project(
+        &owner,
+        &project_id,
+        &String::from_str(&env, "Owner Title"),
+        &String::from_str(&env, "music"),
+        &token,
+        &collabs,
+    );
+
+    let result = client.try_update_project_metadata(
+        &project_id,
+        &not_owner,
+        &String::from_str(&env, "Hacked Title"),
+        &String::from_str(&env, "art"),
+    );
+    assert_eq!(result, Err(Ok(SplitError::Unauthorized)));
+}
+
+#[test]
+fn test_update_project_metadata_emits_event() {
+    let (env, _admin, token) = create_test_env();
+    let contract_id = env.register_contract(None, SplitNairaContract);
+    let client = SplitNairaContractClient::new(&env, &contract_id);
+
+    let owner = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let collabs = make_collaborators(
+        &env,
+        Vec::from_slice(&env, &[alice, bob]),
+        Vec::from_slice(&env, &[5000u32, 5000u32]),
+    );
+
+    let project_id = Symbol::new(&env, "meta_event");
+    client.create_project(
+        &owner,
+        &project_id,
+        &String::from_str(&env, "Event Title"),
+        &String::from_str(&env, "music"),
+        &token,
+        &collabs,
+    );
+
+    let events_before = env.events().all().len();
+    client.update_project_metadata(
+        &project_id,
+        &owner,
+        &String::from_str(&env, "New Event Title"),
+        &String::from_str(&env, "podcast"),
+    );
+
+    // At least one new event (metadata_updated) was emitted
+    assert!(env.events().all().len() > events_before);
 }
