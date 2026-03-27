@@ -4,8 +4,18 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { rpc, Transaction, StrKey } from "@stellar/stellar-sdk";
 import { clsx } from "clsx";
 
-import { buildCreateSplitXdr, buildDistributeXdr, getProjectHistory, getSplit } from "@/lib/api";
-import { connectFreighter, getFreighterWalletState, signWithFreighter, type WalletState } from "@/lib/freighter";
+import {
+  buildCreateSplitXdr,
+  buildDistributeXdr,
+  getProjectHistory,
+  getSplit,
+} from "@/lib/api";
+import {
+  connectFreighter,
+  getFreighterWalletState,
+  signWithFreighter,
+  type WalletState,
+} from "@/lib/freighter";
 import { type SplitProject } from "@/lib/stellar";
 import { useToast } from "./toast-provider";
 
@@ -19,7 +29,7 @@ interface CollaboratorInput {
 // Use static IDs instead of random UUIDs to avoid hydration mismatches
 const getInitialCollaborators = (): CollaboratorInput[] => [
   { id: "collab-1", address: "", alias: "", basisPoints: "5000" },
-  { id: "collab-2", address: "", alias: "", basisPoints: "5000" }
+  { id: "collab-2", address: "", alias: "", basisPoints: "5000" },
 ];
 
 // Seeded project IDs for Phase 3 Projects list view
@@ -28,7 +38,7 @@ const SEEDED_PROJECT_IDS = [
   "diaspora_sounds_02",
   "naija_vibes_03",
   "west_african_beats_04",
-  "cultural_resonance_05"
+  "cultural_resonance_05",
 ];
 
 export function SplitApp() {
@@ -37,7 +47,7 @@ export function SplitApp() {
   const [wallet, setWallet] = useState<WalletState>({
     connected: false,
     address: null,
-    network: null
+    network: null,
   });
   const [projectId, setProjectId] = useState("");
   const [title, setTitle] = useState("");
@@ -46,15 +56,20 @@ export function SplitApp() {
   const [collaborators, setCollaborators] = useState<CollaboratorInput[]>(getInitialCollaborators());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [createdProject, setCreatedProject] = useState<SplitProject | null>(
+    null,
+  );
 
   const [activeTab, setActiveTab] = useState<"create" | "manage" | "projects">("create");
   const [searchProjectId, setSearchProjectId] = useState("");
-  const [fetchedProject, setFetchedProject] = useState<SplitProject | null>(null);
+  const [fetchedProject, setFetchedProject] = useState<SplitProject | null>(
+    null,
+  );
   const [isFetchingProject, setIsFetchingProject] = useState(false);
   const [showDistributeModal, setShowDistributeModal] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  
+
   // Phase 3: Projects tab state
   const [projectsList, setProjectsList] = useState<SplitProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -66,7 +81,7 @@ export function SplitApp() {
         const parsed = Number.parseInt(collaborator.basisPoints, 10);
         return sum + (Number.isFinite(parsed) ? parsed : 0);
       }, 0),
-    [collaborators]
+    [collaborators],
   );
 
   const validationErrors = useMemo(() => {
@@ -77,7 +92,10 @@ export function SplitApp() {
     collaborators.forEach((c) => {
       const addr = c.address.trim();
       if (addr) {
-        if (!StrKey.isValidEd25519PublicKey(addr) && !StrKey.isValidContract(addr)) {
+        if (
+          !StrKey.isValidEd25519PublicKey(addr) &&
+          !StrKey.isValidContract(addr)
+        ) {
           errors[c.id] = "Invalid Stellar address (G...) or contract ID (C...)";
         } else {
           if (addresses.has(addr)) {
@@ -102,10 +120,11 @@ export function SplitApp() {
   }, [collaborators]);
 
   const isValid = useMemo(
-    () => totalBasisPoints === 10_000 && Object.keys(validationErrors).length === 0,
-    [totalBasisPoints, validationErrors]
+    () =>
+      totalBasisPoints === 10_000 && Object.keys(validationErrors).length === 0,
+    [totalBasisPoints, validationErrors],
   );
-  
+
   useEffect(() => {
     void getFreighterWalletState()
       .then(setWallet)
@@ -120,7 +139,8 @@ export function SplitApp() {
       setWallet(state);
       showToast("Wallet connected.", "success");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Wallet connection failed.";
+      const message =
+        error instanceof Error ? error.message : "Wallet connection failed.";
       showToast(message, "error");
     }
   }
@@ -129,9 +149,13 @@ export function SplitApp() {
     try {
       const state = await getFreighterWalletState();
       setWallet(state);
-      showToast(state.connected ? "Wallet reconnected." : "Wallet not authorized.", "info");
+      showToast(
+        state.connected ? "Wallet reconnected." : "Wallet not authorized.",
+        "info",
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Wallet refresh failed.";
+      const message =
+        error instanceof Error ? error.message : "Wallet refresh failed.";
       showToast(message, "error");
     }
   }
@@ -144,20 +168,22 @@ export function SplitApp() {
   function updateCollaborator(id: string, patch: Partial<CollaboratorInput>) {
     setCollaborators((prev) =>
       prev.map((collaborator) =>
-        collaborator.id === id ? { ...collaborator, ...patch } : collaborator
-      )
+        collaborator.id === id ? { ...collaborator, ...patch } : collaborator,
+      ),
     );
   }
 
   function addCollaborator() {
     setCollaborators((prev) => [
       ...prev,
-      { id: `collab-${Date.now()}-${prev.length}`, address: "", alias: "", basisPoints: "0" }
+      { id: `collab-${Date.now()}-${prev.length}`, address: "", alias: "", basisPoints: "0" },
     ]);
   }
 
   function removeCollaborator(id: string) {
-    setCollaborators((prev) => (prev.length <= 2 ? prev : prev.filter((c) => c.id !== id)));
+    setCollaborators((prev) =>
+      prev.length <= 2 ? prev : prev.filter((c) => c.id !== id),
+    );
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -173,7 +199,7 @@ export function SplitApp() {
     const collaboratorPayload = collaborators.map((collaborator) => ({
       address: collaborator.address.trim(),
       alias: collaborator.alias.trim(),
-      basisPoints: Number.parseInt(collaborator.basisPoints, 10)
+      basisPoints: Number.parseInt(collaborator.basisPoints, 10),
     }));
     setIsSubmitting(true);
     setTxHash(null);
@@ -184,25 +210,43 @@ export function SplitApp() {
         title: title.trim(),
         projectType: projectType.trim(),
         token: token.trim(),
-        collaborators: collaboratorPayload
+        collaborators: collaboratorPayload,
       });
       const signedTxXdr = await signWithFreighter(
         buildResponse.xdr,
-        buildResponse.metadata.networkPassphrase
+        buildResponse.metadata.networkPassphrase,
       );
       const server = new rpc.Server(
-        process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ?? "https://soroban-testnet.stellar.org",
-        { allowHttp: true }
+        process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ??
+          "https://soroban-testnet.stellar.org",
+        { allowHttp: true },
       );
-      const transaction = new Transaction(signedTxXdr, buildResponse.metadata.networkPassphrase);
+      const transaction = new Transaction(
+        signedTxXdr,
+        buildResponse.metadata.networkPassphrase,
+      );
       const submitResponse = await server.sendTransaction(transaction);
       if (submitResponse.status === "ERROR") {
-        throw new Error(submitResponse.errorResult?.toString() ?? "Transaction submission failed.");
+        throw new Error(
+          submitResponse.errorResult?.toString() ??
+            "Transaction submission failed.",
+        );
       }
       setTxHash(submitResponse.hash ?? null);
       showToast("Split project created successfully.", "success");
+
+      // Fetch and store the created project details
+      try {
+        const projectDetails = await getSplit(projectId.trim());
+        setCreatedProject(projectDetails);
+      } catch (error) {
+        console.error("Failed to fetch created project details:", error);
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to create split project.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to create split project.";
       showToast(message, "error");
     } finally {
       setIsSubmitting(false);
@@ -229,7 +273,8 @@ export function SplitApp() {
       setFetchedProject(project);
       await fetchHistory(searchProjectId.trim());
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to fetch project.";
+      const message =
+        error instanceof Error ? error.message : "Failed to fetch project.";
       showToast(message, "error");
       setFetchedProject(null);
     } finally {
@@ -243,22 +288,36 @@ export function SplitApp() {
     setTxHash(null);
     setShowDistributeModal(false);
     try {
-      const { xdr, metadata } = await buildDistributeXdr(fetchedProject.projectId, wallet.address);
-      const signedTxXdr = await signWithFreighter(xdr, metadata.networkPassphrase);
-      const server = new rpc.Server(
-        process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ?? "https://soroban-testnet.stellar.org",
-        { allowHttp: true }
+      const { xdr, metadata } = await buildDistributeXdr(
+        fetchedProject.projectId,
+        wallet.address,
       );
-      const transaction = new Transaction(signedTxXdr, metadata.networkPassphrase);
+      const signedTxXdr = await signWithFreighter(
+        xdr,
+        metadata.networkPassphrase,
+      );
+      const server = new rpc.Server(
+        process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ??
+          "https://soroban-testnet.stellar.org",
+        { allowHttp: true },
+      );
+      const transaction = new Transaction(
+        signedTxXdr,
+        metadata.networkPassphrase,
+      );
       const submitResponse = await server.sendTransaction(transaction);
       if (submitResponse.status === "ERROR") {
-        throw new Error(submitResponse.errorResult?.toString() ?? "Transaction distribution failed.");
+        throw new Error(
+          submitResponse.errorResult?.toString() ??
+            "Transaction distribution failed.",
+        );
       }
       setTxHash(submitResponse.hash ?? null);
       showToast("Distribution initiated successfully.", "success");
       await onFetchProject();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Distribution failed.";
+      const message =
+        error instanceof Error ? error.message : "Distribution failed.";
       showToast(message, "error");
     } finally {
       setIsSubmitting(false);
@@ -304,7 +363,9 @@ export function SplitApp() {
         <header className="glass-card rounded-[2.5rem] p-8 md:p-10">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="space-y-1">
-              <h1 className="font-display text-4xl tracking-tight text-ink">SplitNaira</h1>
+              <h1 className="font-display text-4xl tracking-tight text-ink">
+                SplitNaira
+              </h1>
               <p className="max-w-md text-sm leading-relaxed text-muted">
                 Premium royalty management on the Stellar network.
               </p>
@@ -347,7 +408,9 @@ export function SplitApp() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="opacity-40">Wallet</span>
-                <span className="text-ink font-mono">{wallet.address?.slice(0, 6)}...{wallet.address?.slice(-6)}</span>
+                <span className="text-ink font-mono">
+                  {wallet.address?.slice(0, 6)}...{wallet.address?.slice(-6)}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="opacity-40">Network</span>
@@ -363,7 +426,9 @@ export function SplitApp() {
             onClick={() => setActiveTab("create")}
             className={clsx(
               "rounded-full px-8 py-2.5 text-xs font-bold uppercase tracking-widest transition-all",
-              activeTab === "create" ? "bg-white/10 text-ink shadow-sm" : "text-muted hover:text-ink/80"
+              activeTab === "create"
+                ? "bg-white/10 text-ink shadow-sm"
+                : "text-muted hover:text-ink/80",
             )}
           >
             Create Split
@@ -372,7 +437,9 @@ export function SplitApp() {
             onClick={() => setActiveTab("manage")}
             className={clsx(
               "rounded-full px-8 py-2.5 text-xs font-bold uppercase tracking-widest transition-all",
-              activeTab === "manage" ? "bg-white/10 text-ink shadow-sm" : "text-muted hover:text-ink/80"
+              activeTab === "manage"
+                ? "bg-white/10 text-ink shadow-sm"
+                : "text-muted hover:text-ink/80",
             )}
           >
             Manage & Distribute
@@ -391,13 +458,22 @@ export function SplitApp() {
         {activeTab === "create" ? (
           <form onSubmit={onSubmit} className="glass-card rounded-[2.5rem] p-8 md:p-10 space-y-12">
             <div className="flex items-center justify-between border-b border-white/5 pb-6">
-              <h2 className="font-display text-2xl tracking-tight">Project Setup</h2>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Step 01 / 02</span>
+              <h2 className="font-display text-2xl tracking-tight">
+                Project Setup
+              </h2>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted">
+                Step 01 / 02
+              </span>
             </div>
 
             <div className="mt-8 grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <label htmlFor="projectId" className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted px-1">Project Identifier</label>
+                <label
+                  htmlFor="projectId"
+                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted px-1"
+                >
+                  Project Identifier
+                </label>
                 <input
                   id="projectId"
                   required
@@ -408,7 +484,12 @@ export function SplitApp() {
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="title" className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted px-1">Display Title</label>
+                <label
+                  htmlFor="title"
+                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted px-1"
+                >
+                  Display Title
+                </label>
                 <input
                   id="title"
                   required
@@ -419,7 +500,12 @@ export function SplitApp() {
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="token" className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted px-1">Asset Token (Stellar ID)</label>
+                <label
+                  htmlFor="token"
+                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted px-1"
+                >
+                  Asset Token (Stellar ID)
+                </label>
                 <div className="space-y-2">
                   <input
                     id="token"
@@ -429,16 +515,29 @@ export function SplitApp() {
                     placeholder="G... or C..."
                     className={clsx(
                       "glass-input w-full rounded-2xl px-5 py-4 text-sm",
-                      token && !StrKey.isValidEd25519PublicKey(token) && !StrKey.isValidContract(token) ? "border-red-500/50 bg-red-500/5" : ""
+                      token &&
+                        !StrKey.isValidEd25519PublicKey(token) &&
+                        !StrKey.isValidContract(token)
+                        ? "border-red-500/50 bg-red-500/5"
+                        : "",
                     )}
                   />
-                  {token && !StrKey.isValidEd25519PublicKey(token) && !StrKey.isValidContract(token) && (
-                    <p className="px-1 text-[10px] font-bold text-red-400 uppercase tracking-tighter">Invalid Stellar address format</p>
-                  )}
+                  {token &&
+                    !StrKey.isValidEd25519PublicKey(token) &&
+                    !StrKey.isValidContract(token) && (
+                      <p className="px-1 text-[10px] font-bold text-red-400 uppercase tracking-tighter">
+                        Invalid Stellar address format
+                      </p>
+                    )}
                 </div>
               </div>
               <div className="space-y-2">
-                <label htmlFor="projectType" className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted px-1">Media Category</label>
+                <label
+                  htmlFor="projectType"
+                  className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted px-1"
+                >
+                  Media Category
+                </label>
                 <input
                   id="projectType"
                   required
@@ -453,7 +552,9 @@ export function SplitApp() {
             <div className="mt-12 space-y-8">
               <div className="flex items-center justify-between border-b border-white/5 pb-6">
                 <div className="flex items-center gap-4">
-                  <h2 className="font-display text-2xl tracking-tight">Recipients</h2>
+                  <h2 className="font-display text-2xl tracking-tight">
+                    Recipients
+                  </h2>
                   <span className="rounded-lg bg-white/5 px-2.5 py-1 text-[10px] font-bold text-muted">
                     {collaborators.length}
                   </span>
@@ -463,8 +564,18 @@ export function SplitApp() {
                   onClick={addCollaborator}
                   className="premium-button flex items-center gap-2 rounded-xl bg-greenMid/10 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-greenBright transition-all hover:bg-greenMid/20"
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 4.5v15m7.5-7.5h-15"
+                    />
                   </svg>
                   Add Recipient
                 </button>
@@ -472,37 +583,67 @@ export function SplitApp() {
 
               <div className="space-y-4">
                 {collaborators.map((collaborator, index) => (
-                  <div key={collaborator.id} className="group relative grid gap-6 rounded-3xl border border-white/5 bg-white/2 p-6 transition-all hover:bg-white/4 md:grid-cols-12 md:items-start">
+                  <div
+                    key={collaborator.id}
+                    className="group relative grid gap-6 rounded-3xl border border-white/5 bg-white/2 p-6 transition-all hover:bg-white/4 md:grid-cols-12 md:items-start"
+                  >
                     <div className="md:col-span-5 space-y-2">
-                      <label htmlFor={`address-${collaborator.id}`} className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 px-1">Wallet Address</label>
+                      <label
+                        htmlFor={`address-${collaborator.id}`}
+                        className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 px-1"
+                      >
+                        Wallet Address
+                      </label>
                       <input
                         id={`address-${collaborator.id}`}
                         required
                         value={collaborator.address}
-                        onChange={(event) => updateCollaborator(collaborator.id, { address: event.target.value })}
+                        onChange={(event) =>
+                          updateCollaborator(collaborator.id, {
+                            address: event.target.value,
+                          })
+                        }
                         placeholder={`Recipient #${index + 1}`}
                         className={clsx(
                           "glass-input w-full rounded-xl px-4 py-3 text-sm",
-                          validationErrors[collaborator.id] ? "border-red-500/50 bg-red-500/5" : ""
+                          validationErrors[collaborator.id]
+                            ? "border-red-500/50 bg-red-500/5"
+                            : "",
                         )}
                       />
                       {validationErrors[collaborator.id] && (
-                        <p className="px-1 text-[10px] font-bold text-red-400 uppercase tracking-tighter">{validationErrors[collaborator.id]}</p>
+                        <p className="px-1 text-[10px] font-bold text-red-400 uppercase tracking-tighter">
+                          {validationErrors[collaborator.id]}
+                        </p>
                       )}
                     </div>
                     <div className="md:col-span-3 space-y-2">
-                      <label htmlFor={`alias-${collaborator.id}`} className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 px-1">Alias</label>
+                      <label
+                        htmlFor={`alias-${collaborator.id}`}
+                        className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 px-1"
+                      >
+                        Alias
+                      </label>
                       <input
                         id={`alias-${collaborator.id}`}
                         required
                         value={collaborator.alias}
-                        onChange={(event) => updateCollaborator(collaborator.id, { alias: event.target.value })}
+                        onChange={(event) =>
+                          updateCollaborator(collaborator.id, {
+                            alias: event.target.value,
+                          })
+                        }
                         placeholder="e.g. Lead Vocals"
                         className="glass-input w-full rounded-xl px-4 py-3 text-sm"
                       />
                     </div>
                     <div className="md:col-span-3 space-y-2">
-                      <label htmlFor={`bp-${collaborator.id}`} className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 px-1">Share (BP)</label>
+                      <label
+                        htmlFor={`bp-${collaborator.id}`}
+                        className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 px-1"
+                      >
+                        Share (BP)
+                      </label>
                       <input
                         id={`bp-${collaborator.id}`}
                         required
@@ -510,7 +651,11 @@ export function SplitApp() {
                         min={1}
                         max={10_000}
                         value={collaborator.basisPoints}
-                        onChange={(event) => updateCollaborator(collaborator.id, { basisPoints: event.target.value })}
+                        onChange={(event) =>
+                          updateCollaborator(collaborator.id, {
+                            basisPoints: event.target.value,
+                          })
+                        }
                         placeholder="5000"
                         className="glass-input w-full rounded-xl px-4 py-3 text-sm"
                       />
@@ -521,8 +666,18 @@ export function SplitApp() {
                         onClick={() => removeCollaborator(collaborator.id)}
                         className="flex h-10 w-10 min-w-10 items-center justify-center rounded-xl bg-red-500/10 text-red-400 opacity-0 transition-opacity hover:bg-red-500/20 group-hover:opacity-100"
                       >
-                        <svg className="h-5 w-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                        <svg
+                          className="h-5 w-5 pointer-events-none"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -532,16 +687,25 @@ export function SplitApp() {
 
               <div className="flex flex-col items-end gap-3 px-4 py-6 rounded-3xl bg-white/2 border border-white/5">
                 <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Allocation Matrix</span>
-                  <div className={clsx(
-                    "flex items-center gap-2 rounded-lg px-4 py-2 font-mono text-sm font-bold shadow-inner transition-all",
-                    totalBasisPoints === 10_000 ? "bg-greenMid/10 text-greenBright" : "bg-red-500/10 text-red-400"
-                  )}>
-                    {totalBasisPoints.toLocaleString()} <span className="opacity-40">/</span> 10,000 BP
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">
+                    Allocation Matrix
+                  </span>
+                  <div
+                    className={clsx(
+                      "flex items-center gap-2 rounded-lg px-4 py-2 font-mono text-sm font-bold shadow-inner transition-all",
+                      totalBasisPoints === 10_000
+                        ? "bg-greenMid/10 text-greenBright"
+                        : "bg-red-500/10 text-red-400",
+                    )}
+                  >
+                    {totalBasisPoints.toLocaleString()}{" "}
+                    <span className="opacity-40">/</span> 10,000 BP
                   </div>
                 </div>
                 {totalBasisPoints !== 10_000 && (
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-red-400/80">Total must equal 10,000 basis points</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-red-400/80">
+                    Total must equal 10,000 basis points
+                  </p>
                 )}
               </div>
             </div>
@@ -555,8 +719,20 @@ export function SplitApp() {
                 {isSubmitting ? (
                   <div className="flex items-center justify-center gap-3">
                     <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
                     </svg>
                     Initialising Contract...
                   </div>
@@ -570,15 +746,147 @@ export function SplitApp() {
               <div className="mt-8 rounded-2xl border border-greenBright/20 bg-greenBright/5 p-6 animate-in fade-in slide-in-from-bottom-4">
                 <div className="flex items-start gap-4">
                   <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-greenBright/10">
-                    <svg className="h-6 w-6 text-greenBright" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    <svg
+                      className="h-6 w-6 text-greenBright"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-greenBright uppercase tracking-widest">Project Created Successfully</h3>
-                    <p className="font-mono text-[10px] text-muted break-all opacity-80">Hash: {txHash}</p>
-                    <a href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="inline-block pt-2 text-[10px] font-bold text-greenBright underline underline-offset-4 hover:text-white">View on Explorer →</a>
+                    <h3 className="text-sm font-bold text-greenBright uppercase tracking-widest">
+                      Project Created Successfully
+                    </h3>
+                    <p className="font-mono text-[10px] text-muted break-all opacity-80">
+                      Hash: {txHash}
+                    </p>
+                    <a
+                      href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block pt-2 text-[10px] font-bold text-greenBright underline underline-offset-4 hover:text-white"
+                    >
+                      View on Explorer →
+                    </a>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {createdProject && (
+              <div className="mt-8 glass-card rounded-[2.5rem] p-8 md:p-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex flex-wrap items-center justify-between gap-6 border-b border-white/5 pb-8">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-display text-2xl tracking-tight">
+                        {createdProject.title}
+                      </h3>
+                      <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted border border-white/5">
+                        {createdProject.projectType}
+                      </span>
+                      {createdProject.locked && (
+                        <span className="rounded-full bg-red-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-red-400 border border-red-500/20">
+                          Locked
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-mono text-xs text-muted opacity-60 break-all">
+                      {createdProject.projectId}
+                    </p>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">
+                      Available Funds
+                    </p>
+                    <p className="text-3xl font-display text-greenBright">
+                      {Number(createdProject.balance).toLocaleString()}{" "}
+                      <span className="text-sm font-sans opacity-40">
+                        Stroops
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-8 grid gap-8 md:grid-cols-2">
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted border-l-2 border-greenBright pl-4">
+                      Collaborators
+                    </h4>
+                    <div className="space-y-2">
+                      {createdProject.collaborators.map((collab, idx) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center rounded-2xl bg-white/2 p-3 text-sm border border-white/5 hover:bg-white/4 transition-colors"
+                        >
+                          <div className="space-y-0.5">
+                            <p className="font-bold text-xs">{collab.alias}</p>
+                            <p className="font-mono text-[9px] text-muted opacity-60 truncate max-w-30">
+                              {collab.address}
+                            </p>
+                          </div>
+                          <span className="font-mono font-bold text-greenBright/80 text-xs">
+                            {(collab.basisPoints / 100).toFixed(2)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted border-l-2 border-greenBright pl-4">
+                      Project Metadata
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center rounded-2xl bg-white/2 p-3 border border-white/5">
+                        <span className="text-xs font-bold text-muted">
+                          Distribution Round
+                        </span>
+                        <span className="font-mono font-bold text-sm">
+                          {createdProject.distributionRound}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center rounded-2xl bg-white/2 p-3 border border-white/5">
+                        <span className="text-xs font-bold text-muted">
+                          Total Distributed
+                        </span>
+                        <span className="font-mono font-bold text-sm">
+                          {Number(
+                            createdProject.totalDistributed,
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center rounded-2xl bg-white/2 p-3 border border-white/5">
+                        <span className="text-xs font-bold text-muted">
+                          Status
+                        </span>
+                        <span
+                          className={`font-mono font-bold text-xs ${createdProject.locked ? "text-red-400" : "text-greenBright"}`}
+                        >
+                          {createdProject.locked ? "Locked" : "Active"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-white/5">
+                  <button
+                    onClick={() => {
+                      setActiveTab("manage");
+                      setSearchProjectId(createdProject.projectId);
+                      setFetchedProject(createdProject);
+                    }}
+                    className="premium-button w-full rounded-2xl bg-white/10 py-4 text-xs font-bold uppercase tracking-widest text-ink border border-white/10 hover:bg-white/20 transition-all"
+                  >
+                    Manage Project →
+                  </button>
                 </div>
               </div>
             )}
@@ -587,7 +895,9 @@ export function SplitApp() {
           /* Manage Tab Content */
           <div className="space-y-10">
             <div className="glass-card rounded-[2.5rem] p-8 md:p-10">
-              <h2 className="font-display text-2xl tracking-tight mb-8">Locate Project</h2>
+              <h2 className="font-display text-2xl tracking-tight mb-8">
+                Locate Project
+              </h2>
               <div className="flex gap-4">
                 <input
                   value={searchProjectId}
@@ -610,94 +920,189 @@ export function SplitApp() {
                 <div className="flex flex-wrap items-center justify-between gap-6 border-b border-white/5 pb-8">
                   <div className="space-y-1">
                     <div className="flex items-center gap-3">
-                      <h2 className="font-display text-3xl tracking-tight">{fetchedProject.title}</h2>
+                      <h2 className="font-display text-3xl tracking-tight">
+                        {fetchedProject.title}
+                      </h2>
                       <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted border border-white/5">
                         {fetchedProject.projectType}
                       </span>
                     </div>
-                    <p className="font-mono text-xs text-muted opacity-60 break-all">{fetchedProject.projectId}</p>
+                    <p className="font-mono text-xs text-muted opacity-60 break-all">
+                      {fetchedProject.projectId}
+                    </p>
                   </div>
                   <div className="text-right space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Available Funds</p>
-                    <p className="text-4xl font-display text-greenBright">{Number(fetchedProject.balance).toLocaleString()} <span className="text-sm font-sans opacity-40">Stroops</span></p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">
+                      Available Funds
+                    </p>
+                    <p className="text-4xl font-display text-greenBright">
+                      {Number(fetchedProject.balance).toLocaleString()}{" "}
+                      <span className="text-sm font-sans opacity-40">
+                        Stroops
+                      </span>
+                    </p>
                   </div>
                 </div>
 
                 <div className="mt-10 grid gap-10 md:grid-cols-2">
                   <div className="space-y-6">
-                    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted border-l-2 border-greenBright pl-4">Distribution Rules</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted border-l-2 border-greenBright pl-4">
+                      Distribution Rules
+                    </h3>
                     <div className="space-y-3">
                       {fetchedProject.collaborators.map((collab, idx) => (
-                        <div key={idx} className="flex justify-between items-center rounded-2xl bg-white/2 p-4 text-sm border border-white/5 hover:bg-white/4 transition-colors">
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center rounded-2xl bg-white/2 p-4 text-sm border border-white/5 hover:bg-white/4 transition-colors"
+                        >
                           <div className="space-y-0.5">
                             <p className="font-bold">{collab.alias}</p>
-                            <p className="font-mono text-[10px] text-muted opacity-60 truncate max-w-[150px]">{collab.address}</p>
+                            <p className="font-mono text-[10px] text-muted opacity-60 truncate max-w-37.5">
+                              {collab.address}
+                            </p>
                           </div>
-                          <span className="font-mono font-bold text-greenBright/80">{(collab.basisPoints / 100).toFixed(2)}%</span>
+                          <span className="font-mono font-bold text-greenBright/80">
+                            {(collab.basisPoints / 100).toFixed(2)}%
+                          </span>
                         </div>
                       ))}
                     </div>
 
                     <div className="pt-6 border-t border-white/5">
-                      <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted mb-6">Internal Ledgers</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted mb-6">
+                        Internal Ledgers
+                      </h3>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="rounded-2xl border border-white/5 bg-white/2 p-4 space-y-1">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Rounds</p>
-                          <p className="text-xl font-display">{fetchedProject.distributionRound}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted">
+                            Rounds
+                          </p>
+                          <p className="text-xl font-display">
+                            {fetchedProject.distributionRound}
+                          </p>
                         </div>
                         <div className="rounded-2xl border border-white/5 bg-white/2 p-4 space-y-1 text-right">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Total Paid</p>
-                          <p className="text-xl font-display">{Number(fetchedProject.totalDistributed).toLocaleString()}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted">
+                            Total Paid
+                          </p>
+                          <p className="text-xl font-display">
+                            {Number(
+                              fetchedProject.totalDistributed,
+                            ).toLocaleString()}
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-6">
-                    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted border-l-2 border-greenBright pl-4">Transparency History</h3>
-                    <div className="relative space-y-4 before:absolute before:left-[19px] before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-white/10 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted border-l-2 border-greenBright pl-4">
+                      Transparency History
+                    </h3>
+                    <div className="relative space-y-4 before:absolute before:left-4.75 before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-white/10 max-h-125 overflow-y-auto pr-2 custom-scrollbar">
                       {isLoadingHistory ? (
                         <div className="flex items-center gap-3 pl-10 text-[10px] font-bold uppercase tracking-widest text-muted">
-                          <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          <svg
+                            className="h-3 w-3 animate-spin"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
                           </svg>
                           Syncing on-chain events...
                         </div>
                       ) : history.length > 0 ? (
                         history.map((item) => (
                           <div key={item.id} className="relative pl-10 group">
-                            <div className={clsx(
-                              "absolute left-0 top-1 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#0a0a09] transition-all group-hover:border-greenBright/30",
-                              item.type === "round" ? "text-greenBright" : "text-ink/60"
-                            )}>
+                            <div
+                              className={clsx(
+                                "absolute left-0 top-1 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#0a0a09] transition-all group-hover:border-greenBright/30",
+                                item.type === "round"
+                                  ? "text-greenBright"
+                                  : "text-ink/60",
+                              )}
+                            >
                               {item.type === "round" ? (
-                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                <svg
+                                  className="h-5 w-5"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={1.5}
+                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                                  />
                                 </svg>
                               ) : (
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                                  />
                                 </svg>
                               )}
                             </div>
                             <div className="flex flex-col gap-0.5">
                               <div className="flex items-center justify-between">
                                 <p className="text-xs font-bold text-ink">
-                                  {item.type === "round" ? `Distribution Round #${item.round}` : "Recipient Payout"}
+                                  {item.type === "round"
+                                    ? `Distribution Round #${item.round}`
+                                    : "Recipient Payout"}
                                 </p>
                                 <span className="text-[10px] font-mono text-muted tabular-nums opacity-60">
-                                  {new Date(item.ledgerCloseTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {new Date(
+                                    item.ledgerCloseTime * 1000,
+                                  ).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
                                 </span>
                               </div>
                               <p className="text-[10px] font-medium text-muted uppercase tracking-tighter">
                                 {item.type === "round" ? (
-                                  <>Total: <span className="text-ink">{Number(item.amount).toLocaleString()}</span> Stroops</>
+                                  <>
+                                    Total:{" "}
+                                    <span className="text-ink">
+                                      {Number(item.amount).toLocaleString()}
+                                    </span>{" "}
+                                    Stroops
+                                  </>
                                 ) : (
-                                  <>To: <span className="text-ink font-mono">{item.recipient.slice(0, 8)}...</span> Amount: <span className="text-ink">{Number(item.amount).toLocaleString()}</span></>
+                                  <>
+                                    To:{" "}
+                                    <span className="text-ink font-mono">
+                                      {item.recipient.slice(0, 8)}...
+                                    </span>{" "}
+                                    Amount:{" "}
+                                    <span className="text-ink">
+                                      {Number(item.amount).toLocaleString()}
+                                    </span>
+                                  </>
                                 )}
                               </p>
-                              <a 
+                              <a
                                 href={`https://stellar.expert/explorer/testnet/tx/${item.txHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -717,13 +1122,23 @@ export function SplitApp() {
 
                     <button
                       onClick={() => setShowDistributeModal(true)}
-                      disabled={Number(fetchedProject.balance) <= 0 || !wallet.connected}
+                      disabled={
+                        Number(fetchedProject.balance) <= 0 || !wallet.connected
+                      }
                       className="premium-button w-full rounded-2xl bg-greenBright py-6 text-xs font-black uppercase tracking-[0.3em] text-[#0a0a09] shadow-xl shadow-greenBright/10 disabled:opacity-10 disabled:bg-white"
                     >
                       Trigger Distribution
                     </button>
-                    {!wallet.connected && <p className="text-center text-[10px] font-bold text-red-500 uppercase tracking-widest">Connect wallet to distribute</p>}
-                    {Number(fetchedProject.balance) <= 0 && <p className="text-center text-[10px] font-bold text-muted uppercase tracking-widest">No funds available to distribute</p>}
+                    {!wallet.connected && (
+                      <p className="text-center text-[10px] font-bold text-red-500 uppercase tracking-widest">
+                        Connect wallet to distribute
+                      </p>
+                    )}
+                    {Number(fetchedProject.balance) <= 0 && (
+                      <p className="text-center text-[10px] font-bold text-muted uppercase tracking-widest">
+                        No funds available to distribute
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -906,7 +1321,7 @@ export function SplitApp() {
                                     <>To: <span className="text-ink font-mono">{item.recipient.slice(0, 8)}...</span> Amount: <span className="text-ink">{Number(item.amount).toLocaleString()}</span></>
                                   )}
                                 </p>
-                                <a 
+                                <a
                                   href={`https://stellar.expert/explorer/testnet/tx/${item.txHash}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -948,21 +1363,45 @@ export function SplitApp() {
           <div className="glass-card w-full max-w-lg rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
             <h2 className="font-display text-3xl mb-2">Final Confirmation</h2>
             <p className="text-muted text-sm mb-8 leading-relaxed">
-              Splitting <span className="text-ink font-bold">{Number(fetchedProject.balance).toLocaleString()} stroops</span> across <span className="text-ink font-bold">{fetchedProject.collaborators.length} collaborators</span> for project <span className="text-ink font-bold italic">&quot;{fetchedProject.title}&quot;</span>.
+              Splitting{" "}
+              <span className="text-ink font-bold">
+                {Number(fetchedProject.balance).toLocaleString()} stroops
+              </span>{" "}
+              across{" "}
+              <span className="text-ink font-bold">
+                {fetchedProject.collaborators.length} collaborators
+              </span>{" "}
+              for project{" "}
+              <span className="text-ink font-bold italic">
+                &quot;{fetchedProject.title}&quot;
+              </span>
+              .
             </p>
 
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-3 max-h-75 overflow-y-auto pr-2 custom-scrollbar">
               {fetchedProject.collaborators.map((collab, idx) => {
-                const amount = Math.floor((Number(fetchedProject.balance) * collab.basisPoints) / 10_000);
+                const amount = Math.floor(
+                  (Number(fetchedProject.balance) * collab.basisPoints) /
+                    10_000,
+                );
                 return (
-                  <div key={idx} className="flex justify-between items-center rounded-2xl bg-white/5 p-5 border border-white/5">
+                  <div
+                    key={idx}
+                    className="flex justify-between items-center rounded-2xl bg-white/5 p-5 border border-white/5"
+                  >
                     <div className="space-y-0.5">
                       <p className="font-bold text-sm">{collab.alias}</p>
-                      <p className="text-[10px] text-muted uppercase tracking-widest">{(collab.basisPoints / 100).toFixed(2)}% Share</p>
+                      <p className="text-[10px] text-muted uppercase tracking-widest">
+                        {(collab.basisPoints / 100).toFixed(2)}% Share
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-display text-lg text-greenBright">+{amount.toLocaleString()}</p>
-                      <p className="text-[10px] text-muted uppercase tracking-tighter">Stroops</p>
+                      <p className="font-display text-lg text-greenBright">
+                        +{amount.toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-muted uppercase tracking-tighter">
+                        Stroops
+                      </p>
                     </div>
                   </div>
                 );

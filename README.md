@@ -10,6 +10,7 @@ Royalty splitting for Nigeria's creative economy, powered by Stellar and Soroban
 ## Status
 
 SplitNaira is in active development. This repo currently contains:
+
 - `contracts/` Soroban smart contract and tests
 - `frontend/` Next.js + Tailwind scaffold
 - `backend/` Express API scaffold
@@ -25,6 +26,7 @@ SplitNaira is in active development. This repo currently contains:
 ## Getting Started
 
 Prerequisites:
+
 - Node.js >= 18
 - Rust + Cargo
 - Stellar CLI (optional for deploy)
@@ -61,6 +63,45 @@ cp frontend/.env.example frontend/.env.local
 
 # Backend
 cp backend/.env.example backend/.env
+```
+
+### Frontend Environment Variables
+
+Create `frontend/.env.local` from the template and configure:
+
+```bash
+# Stellar network (testnet or mainnet)
+NEXT_PUBLIC_STELLAR_NETWORK=testnet
+
+# Soroban RPC URL for contract interactions
+NEXT_PUBLIC_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+
+# Horizon URL for Stellar operations
+NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
+
+# Deployed Soroban contract ID
+NEXT_PUBLIC_CONTRACT_ID=
+
+# Backend API URL
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+```
+
+### Backend Environment Variables
+
+Create `backend/.env` from the template and configure:
+
+```bash
+# Stellar network configuration
+HORIZON_URL=https://horizon-testnet.stellar.org
+SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+SOROBAN_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
+
+# Deployed contract ID
+CONTRACT_ID=
+
+# Server configuration
+PORT=3001
+NODE_ENV=development
 ```
 
 ## Testnet Deployment Guide
@@ -180,6 +221,7 @@ splitnaira/
 ## CI
 
 GitHub Actions runs the following checks:
+
 - Frontend: `npm run lint`, `npm run build`
 - Backend: `npm run lint`, `npm run build`
 - Contracts: `cargo test`
