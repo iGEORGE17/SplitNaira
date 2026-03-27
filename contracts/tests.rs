@@ -746,7 +746,7 @@ fn test_list_projects_empty() {
     let projects = client.list_projects(&0, &10);
     assert_eq!(projects.len(), 0);
 
-    let project_ids = client.list_project_ids(&0, &10);
+    let project_ids = client.get_project_ids(&0, &10);
     assert_eq!(project_ids.len(), 0);
 }
 
@@ -781,7 +781,7 @@ fn test_list_projects_single() {
         Symbol::new(&env, "single_project")
     );
 
-    let project_ids = client.list_project_ids(&0, &10);
+    let project_ids = client.get_project_ids(&0, &10);
     assert_eq!(project_ids.len(), 1);
     assert_eq!(
         project_ids.get(0).unwrap(),
@@ -839,9 +839,9 @@ fn test_list_projects_pagination() {
     assert_eq!(page4.len(), 0);
 
     // Test pagination with project IDs
-    let ids_page1 = client.list_project_ids(&0, &3);
+    let ids_page1 = client.get_project_ids(&0, &3);
     assert_eq!(ids_page1.len(), 3);
-    let ids_page2 = client.list_project_ids(&3, &3);
+    let ids_page2 = client.get_project_ids(&3, &3);
     assert_eq!(ids_page2.len(), 2);
 }
 

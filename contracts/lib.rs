@@ -535,38 +535,6 @@ impl SplitNairaContract {
         result
     }
 
-    /// Returns a list of project IDs with pagination.
-    /// Does not bump TTL to avoid excessive storage writes during listing.
-    ///
-    /// # Arguments
-    /// * `start` - Starting index (0-based)
-    /// * `limit` - Maximum number of IDs to return
-    ///
-    /// # Returns
-    /// Vector of project ID Symbols
-    pub fn list_project_ids(env: Env, start: u32, limit: u32) -> Vec<Symbol> {
-        let project_ids: Vec<Symbol> = env
-            .storage()
-            .persistent()
-            .get::<DataKey, Vec<Symbol>>(&DataKey::ProjectIds)
-            .unwrap_or(Vec::new(&env));
-
-        let total = project_ids.len();
-        if start >= total {
-            return Vec::new(&env);
-        }
-
-        let end = (start + limit).min(total);
-        let mut result = Vec::new(&env);
-
-        for i in start..end {
-            if let Some(project_id) = project_ids.get(i) {
-                result.push_back(project_id);
-            }
-        }
-
-        result
-    }
 
     /// Returns the project-scoped distributable balance.
     pub fn get_balance(env: Env, project_id: Symbol) -> Result<i128, SplitError> {
@@ -645,6 +613,7 @@ impl SplitNairaContract {
     }
 
     /// Returns a paginated list of project IDs (Symbols) in creation order.
+    /// Does not bump TTL to avoid excessive storage writes during listing.
     ///
     /// # Arguments
     /// * `start` - Zero-based index of the first project to return

@@ -114,9 +114,6 @@ Returns total number of created projects.
 ### `list_projects(start, limit) -> Vec<SplitProject>`
 Paginated projects.
 
-### `list_project_ids(start, limit) -> Vec<Symbol>`
-Paginated project IDs.
-
 ### `get_project_ids(start, limit) -> Vec<Symbol>`
 Paginated project IDs in creation order.
 
